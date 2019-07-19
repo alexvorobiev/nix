@@ -1,2 +1,6 @@
 os: osx
 script: ./tests/install-darwin.sh
+addons:
+  homebrew:
+    packages:
+    - boost
