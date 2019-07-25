@@ -10,3 +10,6 @@ matrix:
     script:
     - nix-build ./release.nix -A build.x86_64-darwin
     # - ./tests/install-darwin.sh
+deploy:
+  skip_cleanup: true
+  
