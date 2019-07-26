@@ -595,6 +595,26 @@ void copyStorePath(ref<Store> srcStore, ref<Store> dstStore,
 
     uint64_t total = 0;
 
+    auto progress = [&](size_t len) {
+        total += len;
+        act.progress(total, info->narSize);
+    };
+
+    struct MyStringSink : StringSink
+    {
+        typedef std::function<void(size_t)> Callback;
+        Callback callback;
+        MyStringSink(Callback callback) : callback(callback) { }
+        void operator () (const unsigned char * data, size_t len) override
+        {
+            StringSink::operator ()(data, len);
+            callback(len);
+        };
+    };
+
+    MyStringSink sink(progress);
+    srcStore->narFromPath({storePath}, sink);
+    
     if (!info->narHash) {
         StringSink sink;
         srcStore->narFromPath({storePath}, sink);
@@ -614,19 +634,8 @@ void copyStorePath(ref<Store> srcStore, ref<Store> dstStore,
         info2->ultimate = false;
         info = info2;
     }
-
-    auto source = sinkToSource([&](Sink & sink) {
-        LambdaSink wrapperSink([&](const unsigned char * data, size_t len) {
-            sink(data, len);
-            total += len;
-            act.progress(total, info->narSize);
-        });
-        srcStore->narFromPath({storePath}, wrapperSink);
-    }, [&]() {
-        throw EndOfFile("NAR for '%s' fetched from '%s' is incomplete", storePath, srcStore->getUri());
-    });
-
-    dstStore->addToStore(*info, *source, repair, checkSigs);
+    
+    dstStore->addToStore(*info, sink.s, repair, checkSigs);
 }
 
 
